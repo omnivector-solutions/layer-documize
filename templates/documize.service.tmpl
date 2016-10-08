@@ -1,0 +1,11 @@
+[Unit]
+Description=Documize
+
+[Service]
+Type=simple
+User=documize
+Group=documize
+WorkingDirectory=/srv
+ExecStart=/srv/documize -port=5001 -db='{{user}}:{{pass}}@tcp({{host}}:3306)/documize'
+Restart=always
+RestartSec=1
