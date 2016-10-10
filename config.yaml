@@ -1,0 +1,10 @@
+options:
+  fqdn:                       
+    type: string               
+    description: Fqdn of mattermost server to use
+    default: "documize.example.com"
+  port:
+    type: int
+    description: Nginx listen port
+    default: 80
+    

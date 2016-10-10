@@ -100,9 +100,14 @@ def get_set_db_conn(database):
     """Get/Set mysql connection details
     """
 
-    # Render systemd template
+    documize_systemd_conf = '/etc/systemd/system/documize.service'
+
+    # Check for and render systemd template
+    if os.path.exists(documize_systemd_conf):
+        os.remove(documize_systemd_conf)
+
     render(source="documize.service.tmpl",
-           target="/etc/systemd/system/documize.service",
+           target=documize_systemd_conf,
            perms=0o644,
            owner="root",
            context={'host': database.db_host(),
@@ -112,7 +117,11 @@ def get_set_db_conn(database):
 
 
 @when('certificates.available')
+@when_not('documize.cert.requested')
 def send_data(tls):
+    """Send CA sans data to generate cert with
+    """
+
     # Use the public ip of this unit as the Common Name for the certificate.
     common_name = unit_public_ip()
     # Get a list of Subject Alt Names for the certificate.
@@ -124,6 +133,7 @@ def send_data(tls):
     certificate_name = local_unit().replace('/', '_')
     # Send the information on the relation object.
     tls.request_server_cert(common_name, sans, certificate_name)
+    set_state('documize.cert.requested')
 
 
 @when('certificates.server.cert.available')
@@ -169,7 +179,7 @@ def configure_webserver():
 
 @when('documize.web.configured')
 def set_status_persist():
-    """Set status to persist over other layers
+    """Set status to persist over other layers status
     """
     status_set('active', 'Documize available: %s' % unit_public_ip())
 
@@ -185,3 +195,20 @@ def restart_service():
 def setup_website(website):
     conf = config()
     website.configure(conf['port'])
+
+
+@when('config.changed.fqdn')
+def react_to_fqdn_changed():
+    """Re-render nginx template, re-gen certs
+    """
+
+    remove_state('documize.ssl.available')
+    remove_state('documize.web.configured')
+    remove_state('documize.cert.requested')
+
+
+@when('config.changed.port')
+def react_to_fqdn_changed():
+    """Re-render nginx template
+    """
+    remove_state('documize.web.configured')
