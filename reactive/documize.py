@@ -104,8 +104,7 @@ def get_set_db_conn(database):
     set_state('documize.systemd.available')
 
 
-@when('nginx.available', 'lets-encrypt.registered',
-      'documize.systemd.available')
+@when('nginx.available', 'documize.systemd.available')
 @when_not('documize.web.configured')
 def configure_webserver():
     """Configure nginx
