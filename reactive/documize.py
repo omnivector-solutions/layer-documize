@@ -1,11 +1,13 @@
 import os
 import socket
+import shutil
 
 from charms.reactive import (
     hook,
     when,
     when_not,
     set_state,
+    remove_state
 )
 
 from charmhelpers.core.hookenv import (
@@ -37,11 +39,6 @@ from charms.layer.nginx import configure_site
 from charms.layer import options
 
 
-opts = options('tls-client')
-SRV_KEY = opts.get('server_key_path')
-SRV_CRT = opts.get('server_certificate_path')
-
-
 @when_not('documize.installed')
 def install_documize():
     """Grab the documize binary, unpack, install
@@ -58,22 +55,13 @@ def install_documize():
 
     # Get and uppack resource
     if os.path.exists('/srv/documize'):
-        os.remove('/srv/documize')
+        shutil.rmtree('/srv/documize')
 
     documize_bdist = resource_get('bdist')
     extract_tarfile(documize_bdist, destpath="/srv")
 
     set_state('documize.installed')
     status_set('active', 'Documize installation complete')
-
-
-@hook('config-changed')
-def config_changed():
-    conf = config()
-    if conf.changed('port') and conf.previous('port'):
-        close_port(conf.previous('port'))
-    if conf.get('port'):
-        open_port(conf['port'])
 
 
 @when('database.connected')
@@ -116,51 +104,7 @@ def get_set_db_conn(database):
     set_state('documize.systemd.available')
 
 
-@when('certificates.available')
-@when_not('documize.cert.requested')
-def send_data(tls):
-    """Send CA sans data to generate cert with
-    """
-
-    # Use the public ip of this unit as the Common Name for the certificate.
-    common_name = unit_public_ip()
-    # Get a list of Subject Alt Names for the certificate.
-    sans = []
-    sans.append(unit_public_ip())
-    sans.append(unit_private_ip())
-    sans.append(socket.gethostname())
-    # Create a path safe name by removing path characters from the unit name.
-    certificate_name = local_unit().replace('/', '_')
-    # Send the information on the relation object.
-    tls.request_server_cert(common_name, sans, certificate_name)
-    set_state('documize.cert.requested')
-
-
-@when('certificates.server.cert.available')
-@when_not('documize.ssl.available')
-def save_crt_key(tls):
-    '''Read the server crt/key from the relation object and
-    write to /etc/ssl/certs'''
-
-    # Remove the crt/key if they pre-exist
-    if os.path.exists(SRV_CRT):
-        os.remove(SRV_CRT)
-    if os.path.exists(SRV_KEY):
-        os.remove(SRV_KEY)
-
-    # Get and write out crt/key
-    server_cert, server_key = tls.get_server_cert()
-
-    with open(SRV_CRT, 'w') as crt_file:
-        crt_file.write(server_cert)
-    with open(SRV_KEY, 'w') as key_file:
-        key_file.write(server_key)
-
-    status_set('active', 'TLS crt/key ready')
-    set_state('documize.ssl.available')
-
-
-@when('nginx.available', 'documize.ssl.available',
+@when('nginx.available', 'lets-encrypt.registered',
       'documize.systemd.available')
 @when_not('documize.web.configured')
 def configure_webserver():
@@ -168,10 +112,8 @@ def configure_webserver():
     """
 
     status_set('maintenance', 'Configuring website')
-    configure_site('documize', 'documize.nginx.tmpl',
-                   key_path=SRV_KEY,
-                   crt_path=SRV_CRT, fqdn=config('fqdn'))
-    open_port(443)
+    configure_site('documize', 'documize.nginx.tmpl')
+    open_port(config('port'))
     restart_service()
     status_set('active', 'Documize available: %s' % unit_public_ip())
     set_state('documize.web.configured')
@@ -193,18 +135,7 @@ def restart_service():
 
 @when('website.available')
 def setup_website(website):
-    conf = config()
-    website.configure(conf['port'])
-
-
-@when('config.changed.fqdn')
-def react_to_fqdn_changed():
-    """Re-render nginx template, re-gen certs
-    """
-
-    remove_state('documize.ssl.available')
-    remove_state('documize.web.configured')
-    remove_state('documize.cert.requested')
+    website.configure(config('port'))
 
 
 @when('config.changed.port')
