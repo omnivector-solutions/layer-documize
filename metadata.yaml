@@ -1,15 +1,14 @@
 name: documize
-summary: Documize is an open source, ERM platform.
+summary: All-in-one platform built to handle ever-growing document pains.
 description: |
     From the [Documize](http://documize.com) website:
 
-    Better docs, more knowledge, faster outcomes
-
-    The enterprise knowledge backbone that drives your business
+    Documize creates the Enterprise Knowledge Backbone by unifying docs, wiki, reporting and dashboards.
 tags:
   - applications
   - ERM
   - groupware
+  - documize
 maintainer: James Beedy <jamesbeedy@gmail.com>
 series:
   - xenial
@@ -23,5 +22,5 @@ resources:
   bdist:
     type: file
     filename: documize.tar.gz
-    description: Binary distribution of Documize, obtained from https://github.com/documize/community/releases
+    description: Tarbal of the binary distribution of Documize, obtained from https://github.com/documize/community/releases
 

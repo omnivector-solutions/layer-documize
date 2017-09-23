@@ -1,7 +1,6 @@
 includes:
  - 'layer:basic'
  - 'layer:nginx'
- - 'layer:lets-encrypt'
  - 'interface:mysql-shared'
  - 'interface:http'
 repo: https://github.com/creativedrive/charms

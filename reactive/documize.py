@@ -1,58 +1,42 @@
 import os
-import socket
 import shutil
 
 from charms.reactive import (
-    hook,
-    when,
-    when_not,
+    remove_state,
     set_state,
-    remove_state
+    when,
+    when_any,
+    when_not,
 )
 
 from charmhelpers.core.hookenv import (
+    config,
+    open_port,
+    resource_get,
     status_set,
     unit_get,
-    close_port,
-    open_port,
     unit_public_ip,
-    unit_private_ip,
-    resource_get,
-    config,
-    local_unit
-)
-
-from charmhelpers.core.host import (
-    add_group,
-    adduser,
-    user_exists,
-    group_exists,
-    service_running,
-    service_start,
-    service_restart
 )
 
 from charmhelpers.core.templating import render
 from charmhelpers.payload.archive import extract_tarfile
 
 from charms.layer.nginx import configure_site
-from charms.layer import options
+from charms.layer.documize import (
+    start_restart,
+    create_user_and_group_if_not_exists
+)
 
 
 @when_not('documize.installed')
-def install_documize():
+def install_documize_and_user_init():
     """Grab the documize binary, unpack, install
-    to /srv.
+    to /srv, create documize user and group if not exists.
     """
 
     status_set('maintenance', "Installing Documize")
 
-    # Create documize user & group if not exists
-    if not group_exists('documize'):
-        add_group("documize")
-    if not user_exists('documize'):
-        adduser("documize", system_user=True)
-
+    create_user_and_group_if_not_exists(user="documize", group="documize")
     # Get and uppack resource
     if os.path.exists('/srv/documize'):
         shutil.rmtree('/srv/documize')
@@ -67,7 +51,7 @@ def install_documize():
 @when('database.connected')
 @when_not('documize.db.created')
 def create_db(database):
-    """Create db
+    """Create/request documize database.
     """
 
     status_set("maintenance", "Creating MySQL database")
@@ -85,10 +69,11 @@ def create_db(database):
 @when('database.available', 'documize.installed')
 @when_not('documize.systemd.available')
 def get_set_db_conn(database):
-    """Get/Set mysql connection details
+    """Get/Set mysql connection details once database available.
     """
 
-    documize_systemd_conf = '/etc/systemd/system/documize.service'
+    documize_systemd_conf = \
+        '/etc/systemd/system/documize.service'
 
     # Check for and render systemd template
     if os.path.exists(documize_systemd_conf):
@@ -105,31 +90,24 @@ def get_set_db_conn(database):
 
 
 @when('nginx.available', 'documize.systemd.available')
-@when_not('documize.web.configured')
-def configure_webserver():
-    """Configure nginx
+@when_not('documize.web.available')
+def render_nginx_template_restart_nginx():
+    """NGINX
     """
 
     status_set('maintenance', 'Configuring website')
     configure_site('documize', 'documize.nginx.tmpl')
     open_port(config('port'))
-    restart_service()
+    start_restart('nginx')
     status_set('active', 'Documize available: %s' % unit_public_ip())
-    set_state('documize.web.configured')
+    set_state('documize.web.available')
 
 
-@when('documize.web.configured')
+@when('documize.web.available')
 def set_status_persist():
-    """Set status to persist over other layers status
+    """Set status to persist over other layers status.
     """
     status_set('active', 'Documize available: %s' % unit_public_ip())
-
-
-def restart_service():
-    if service_running("documize"):
-        service_restart("documize")
-    else:
-        service_start("documize")
 
 
 @when('website.available')
@@ -137,8 +115,9 @@ def setup_website(website):
     website.configure(config('port'))
 
 
-@when('config.changed.port')
+@when('documize.web.available')
+@when_any('config.changed.port', 'config.changed.fqdn')
 def react_to_fqdn_changed():
-    """Re-render nginx template
+    """Re-render nginx template when port or fqdn changes
     """
-    remove_state('documize.web.configured')
+    remove_state('documize.web.available')

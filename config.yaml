@@ -1,7 +1,9 @@
 options:
   fqdn:                       
     type: string               
-    description: Fqdn of mattermost server to use
+    description: |
+      FQDN of documize server (for nginx config), defaults to "_"
+    default: "_"
   port:
     type: int
     description: Nginx listen port
