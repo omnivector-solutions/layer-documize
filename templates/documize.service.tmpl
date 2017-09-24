@@ -6,6 +6,6 @@ Type=simple
 User=documize
 Group=documize
 WorkingDirectory=/srv
-ExecStart=/srv/documize -port=5001 -db='{{user}}:{{pass}}@tcp({{host}}:3306)/documize'
+ExecStart=/srv/documize-community-linux-amd64 -port=5001 -db='{{user}}:{{pass}}@tcp({{host}}:{{port}})/{{database}}' -salt=1234567890acbdefg -dbtype=mysql
 Restart=always
 RestartSec=1

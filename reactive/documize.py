@@ -84,8 +84,11 @@ def get_set_db_conn(database):
            perms=0o644,
            owner="root",
            context={'host': database.db_host(),
+                    'port': 3306,
                     'user': database.username("documize"),
-                    'pass': database.password("documize")})
+                    'pass': database.password("documize"),
+                    'database': database.database("documize")})
+    start_restart('documize')
     set_state('documize.systemd.available')
 
 

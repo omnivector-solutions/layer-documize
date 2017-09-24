@@ -4,10 +4,16 @@ Documize creates the Enterprise Knowledge Backbone by unifying docs, wiki, repor
 
 composition + coordination + discovery + distribution + workflows = faster business outcomes
 
+[Documize Homepage](https://documize.com/)
 
 # Usage
 
-To deploy this charm you will need to accompany it with a MySQL database.
+To deploy Documize, you will need to accompany it with a MySQL database.
+
+Suppored databases:
+* [MySQL](https://jujucharms.com/mysql)
+* [PerconaDB](https://jujucharms.com/percona-cluster)
+* [MariaDB](https://jujucharms.com/mariadb)
 
 We can accomplish this using Juju as follows:
 ```bash
